@@ -1,0 +1,6 @@
+id_rsa*
+.terraform*
+terraform.*
+hosts
+key.pem
+myKeypair
