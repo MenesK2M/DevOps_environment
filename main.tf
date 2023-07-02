@@ -45,7 +45,7 @@ resource "aws_instance" "environement" {
   }
   availability_zone = "us-east-1e"
   security_groups   = [aws_security_group.security_group.name]
-  user_data         = file("${path.module}/user_data.sh")
+  user_data         = count.index == 0 ? file("${path.module}/control_node.sh") : count.index == 1 ? file("${path.module}/jenkins_master.sh") : count.index == 2 ? file("${path.module}/jenkins_slaves.sh") : file("${path.module}/user_data.sh")
 }
 
 resource "local_file" "hosts" {
@@ -79,11 +79,6 @@ resource "null_resource" "control" {
   }
 
   provisioner "file" {
-    source      = "control_node.sh"
-    destination = "/home/ec2-user/control_node.sh"
-  }
-
-  provisioner "file" {
     source      = "hosts"
     destination = "/home/ec2-user/hosts"
   }
@@ -93,8 +88,6 @@ resource "null_resource" "control" {
       "set -x",
       "sudo hostnamectl set-hostname master",
       "sleep 60",
-      "chmod 700 /home/ec2-user/control_node.sh",
-      "bash -x /home/ec2-user/control_node.sh",
       "sudo mv /home/ec2-user/hosts /etc/ansible/",
       "sudo chown -R root: /etc/ansible/hosts",
       "sudo mkdir /home/ansadmin/.ssh",
@@ -160,20 +153,18 @@ resource "null_resource" "jenkins_master" {
     private_key = file("${path.module}/key.pem")
   }
 
-  provisioner "file" {
-    source      = "id_rsa.pub"
-    destination = "/home/ec2-user/id_rsa.pub"
+provisioner "file" {
+    source      = "id_rsa.pub(J-master)"
+    destination = "/home/ec2-user/.ssh/id_rsa.pub"
   }
 
   provisioner "file" {
-    source      = "jenkins_master.sh"
-    destination = "/home/ec2-user/jenkins_master.sh"
+    source      = "id_rsa(J-master)"
+    destination = "/home/ec2-user/.ssh/id_rsa"
   }
 
   provisioner "remote-exec" {
     inline = [
-      "chmod 700 /home/ec2-user/jenkins_master.sh",
-      "bash -x /home/ec2-user/jenkins_master.sh",
       "sleep 120",
       "sudo systemctl enable --now jenkins"
     ]
@@ -198,19 +189,16 @@ resource "null_resource" "jenkins_slaves" {
   }
 
   provisioner "file" {
-    source      = "id_rsa.pub"
+    source      = "id_rsa.pub(J-master)"
     destination = "/home/ec2-user/id_rsa.pub"
   }
 
-  provisioner "file" {
-    source      = "jenkins_slaves.sh"
-    destination = "/home/ec2-user/jenkins_slaves.sh"
-  }
-
-  provisioner "remote-exec" {
+   provisioner "remote-exec" {
     inline = [
-      "chmod 700 /home/ec2-user/jenkins_slaves.sh",
-      "bash -x /home/ec2-user/jenkins_slaves.sh",
+      "sudo mkdir /home/slave/.ssh",
+      "sudo mv /home/ec2-user/id_rsa.pub /home/slave/.ssh/authorized_keys",
+      "sudo chmod 600 /home/slave/.ssh/authorized_keys",
+      "sudo chown -R slave:slave /home/slave/.ssh/"
     ]
     on_failure = continue
   }
