@@ -153,16 +153,6 @@ resource "null_resource" "jenkins_master" {
     private_key = file("${path.module}/key.pem")
   }
 
-provisioner "file" {
-    source      = "id_rsa.pub(J-master)"
-    destination = "/home/ec2-user/.ssh/id_rsa.pub"
-  }
-
-  provisioner "file" {
-    source      = "id_rsa(J-master)"
-    destination = "/home/ec2-user/.ssh/id_rsa"
-  }
-
   provisioner "remote-exec" {
     inline = [
       "sleep 120",
@@ -186,21 +176,6 @@ resource "null_resource" "jenkins_slaves" {
     password    = ""
     host        = element(aws_instance.environement.*.public_ip, 2)
     private_key = file("${path.module}/key.pem")
-  }
-
-  provisioner "file" {
-    source      = "id_rsa.pub(J-master)"
-    destination = "/home/ec2-user/id_rsa.pub"
-  }
-
-   provisioner "remote-exec" {
-    inline = [
-      "sudo mkdir /home/slave/.ssh",
-      "sudo mv /home/ec2-user/id_rsa.pub /home/slave/.ssh/authorized_keys",
-      "sudo chmod 600 /home/slave/.ssh/authorized_keys",
-      "sudo chown -R slave:slave /home/slave/.ssh/"
-    ]
-    on_failure = continue
   }
 }
 
